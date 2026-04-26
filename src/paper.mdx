@@ -1,36 +1,24 @@
 ---
-title: Academic Project Page Template
+title: Point Cloud Segmentation for Agricultural Robotics
 authors:
-  - name: Roman Hauksson
-    url: https://roman.technology
-    institution: University of Texas at Dallas
-    notes: ["*", †]
-  - name: Author Two
-    institution: Institution Two
-    notes: ["*", †]
-  - name: Author Three
-    institution: Institution Three
-    notes: ["*"]
-  - name: Author Four
-    institution: Institution Four
-conference: Conference Name
-notes:
-  - symbol: "*"
-    text: author note one
-  - symbol: †
-    text: author note two
+  - name: Zach Charlick
+    institution: University of Michigan
+  - name: Sebastian Helgeson
+    institution: University of Michigan
+  - name: Ryan Tsai
+    institution: University of Michigan
+  - name: Sam Vance
+    institution: University of Michigan
+conference: ROB 599 Deep Learning For Robot Perception and Manipulation
 links:
   - name: Paper
     url: https://github.com/RomanHauksson/academic-project-astro-template
     icon: ri:file-pdf-2-line
   - name: Code
-    url: https://github.com/RomanHauksson/academic-project-astro-template
+    url: https://drive.google.com/drive/folders/1PNXGeC8mVRfseKUukU7hXr_JMkYN3Be-?usp=sharing
     icon: ri:github-line
-  - name: arXiv
-    url: https://github.com/RomanHauksson/academic-project-astro-template
-    icon: academicons:arxiv
-  - name: Slides
-    url: https://github.com/RomanHauksson/academic-project-astro-template
+  - name: Proposal
+    url: https://docs.google.com/presentation/d/1uadxUm9A8rAe8aVjGidaw7Dlm8kXpt_V/edit?usp=sharing&ouid=117873408476534826161&rtpof=true&sd=true
     icon: ri:slideshow-2-line
 
 # The color theme of the page. Defaults to "device" (the preference set in the user's brower or operating system). Setting this to "light" or "dark" will override the user's preference. This is useful if your figures only look good in one theme.
@@ -69,7 +57,7 @@ import dogsMsillm from "@/assets/dogs-msillm.jpg"
 
 ## Abstract
 
-This is a template you can use to create a professional project page for your research paper. [See the code for the template and instructions on how to use it yourself on GitHub](https://github.com/RomanHauksson/academic-project-astro-template). It's made with the [Astro web framework](https://astro.build/) and styled with [Tailwind](https://tailwindcss.com/). You write the content in [MDX](https://mdxjs.com/), which enables markdown formatting like **bold**, _italics_, and ~strikethrough~, as well as custom components like <SmallCaps>small caps.</SmallCaps>
+Agricultural robots like STEMbot (Figure 1) seek to enable autonomous navigation of dense plant canopies. For motion planning, STEMbot must reason about plant semantics like stem, and leaves.  We augment traditional point cloud segmentation algorithms where plant observations are static and complete, with a new dataset of partial point cloud observations along a simulated STEMbot trajectory. Using transformers and an LSTM, our models reason about sequential, overlapping observations to improve temporal consistency between sequential point classifications compared to the PTv3 baseline.
 
 </HighlightedSection>
 
