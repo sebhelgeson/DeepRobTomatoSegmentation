@@ -1,5 +1,5 @@
 ---
-title: Point Cloud Segmentation for Agricultural Robotics
+title: Partial Point Cloud Segmentation for Agricultural Robotics
 authors:
   - name: Zach Charlick
     institution: University of Michigan
@@ -12,10 +12,10 @@ authors:
 conference: ROB 599 Deep Learning For Robot Perception and Manipulation
 links:
   - name: Paper
-    url: https://github.com/RomanHauksson/academic-project-astro-template
+    url: https://drive.google.com/file/d/1F41-nB6Bb28PINPM-282ZhWon80kZJvz/view?usp=sharing
     icon: ri:file-pdf-2-line
   - name: Code
-    url: https://drive.google.com/drive/folders/1PNXGeC8mVRfseKUukU7hXr_JMkYN3Be-?usp=sharing
+    url: https://drive.google.com/drive/folders/1Sf0SV3Bn7-v6kIQaChPT8jzk6CHzuW2S?usp=sharing
     icon: ri:github-line
   - name: Poster
     url: https://docs.google.com/presentation/d/1moHKQ7s5hdV2ZS7D0GmycRgWYQAKSLkauA444SCfnaU/edit?usp=sharing
@@ -46,166 +46,399 @@ import Wide from "./components/Wide.astro";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/starwind/tabs";
 import { Comparison } from "./components/Comparison.tsx";
 
-import outside from "./assets/outside.mp4";
-import dogsDiffc from "./assets/dogs-diffc.png"
-import dogsTrue from "./assets/dogs-true.png"
-import dogsMsillm from "@/assets/dogs-msillm.jpg"
+import Figure1 from "./assets/stembot_figure.jpg"
+import Figure2 from "./assets/ptv3_pipeline.png"
+import Figure3 from "./assets/reproduction_results.png"
+import Figure4 from "./assets/partial_dataset.jpg"
+import Figure5 from "./assets/trajectory.jpg"
+import Figure6 from "./assets/algorithmic_extension_pipelines.png"
+import Figure7 from "./assets/full_partial_comparison.png"
+import Figure8 from "./assets/flicker_metric_visualized.png"
+import Figure9 from "./assets/world_sensor_comparison.png"
 
 
-import HeroImage from "./assets/Stembot.jpg"
-
-<Picture src={HeroImage} alt="Photo of STEMbot on tomato stem" />
 
 <HighlightedSection>
 
 ## Abstract
 
-Agricultural robots like STEMbot (Figure 1) seek to enable autonomous navigation of dense plant canopies. For motion planning, STEMbot must reason about plant semantics like stem, and leaves.  We augment traditional point cloud segmentation algorithms where plant observations are static and complete, with a new dataset of partial point cloud observations along a simulated STEMbot trajectory. Using transformers and an LSTM, our models reason about sequential, overlapping observations to improve temporal consistency between sequential point classifications compared to the PTv3 baseline.
+Agricultural robots such as STEMbot seek to enable autonomous navigation of dense plant canopies. For motion planning, STEMbot must be able to reason about plant semantics such as stem versus leaves. Current segmentation algorithms assume complete scene information captured by external sensors or do not explicitly enforce temporal consistency, making them unreliable during real-world deployment. In this work, we introduce a dataset containing annotated sequences of partial tomato plant point clouds and propose two learning-based algorithms for segmentation, rewarding consistent predictions along a trajectory. We first adapt the TomatoWUR dataset for robotics applications to include local point cloud observations simulated on the STEMbot. Our models take advantage of the temporal correlation between consecutive scans in a trajectory by augmenting a PTv3 model with batched sequence inputs and a long short term memory (LSTM) module. In addition, we propose a new metric to quantify the temporal consistency of inference along a trajectory by measuring the 'flicker' between predictions. Finally, we evaluate the performance and temporal consistency of our models and compare to the original baseline.
 
 </HighlightedSection>
 
-
-
-
-
-
-
-
-
-
-DELETE THIS vvvvvvvvvvvvvvvv
-(It's just for my reference)
-
-## Visuals
-
-### Picture
-
-Use the `Picture` component to display images. If you have a figure in PDF format, you can pass in its path as the `src` prop and it will be converted into a web-friendly image automatically.
-
-<Picture src={dogsDiffc} alt="Photo of two running dogs, lossily compressed using the DiffC algorithm" />
-
-### Wide visual
-
-I constrained the maximum width of the text column to make sure it's readable even when the screen is wide. But images and other visuals should "break out" and take up more horizontal space: for this, try wrapping them in the `Wide` component.
-
-<Wide>
-  <Picture src={dogsDiffc} alt="Photo of two running dogs, lossily compressed using the DiffC algorithm" />
-</Wide>
-
-### Figure with caption
-
-Wrap a visual in a `Figure` component to add a caption.
+## Introduction
 
 <Figure>
-  <Picture slot="figure" src={dogsDiffc} alt="Photo of two running dogs, lossily compressed using the DiffC algorithm" />
-  <Fragment slot="caption">A photo of two dogs running side-by-side in shallow water, lossily compressed using the [DiffC algorithm](https://jeremyiv.github.io/diffc-project-page/).</Fragment>
+  <Picture slot="figure" src={Figure1} alt="STEMbot navigating under a plant canopy. Under Submission iROS 2026, do not distribute." />
+  <Fragment slot="caption">Figure 1: STEMbot navigating under a plant canopy. Under Submission iROS 2026, do not distribute.</Fragment>
 </Figure>
 
-### Comparison slider
+Organic agriculture is extremely labor intensive and difficult to automate [1]. Eighteen percent of yearly plant growth loss is atrributed to invasive pests. While weeds account for the highest component of annual plant growth loss (34\% of loss), mechanical removal and herbicides have been very effective in controlling their growth [2]. Pest management, on the other hand, remains a difficult problem for modern farmers. 
 
-Use the `Comparison` component to compare two visuals with an interactive slider.
+In non-organic farming, sythetic pesticides have been shown to improve crop productivity [2]. In organic farming, we seek to find non-invasive methods of pest management, to avoid the use of harmful chemicals for food production. Drone images have been used to detect pests through  slight wavelength changes in light reflecting off crops caused by plant stress. The detection of pest hotspots allowa farmers to precisely treat their crops with natural enemies or limited use of pesticides. While drone images can provide many insights, they struggle to identify individual pests such as the tobacco hornworm [3][4], which hide deep within plant canopies and are often occluded by leaves and other foliage [5]. 
 
-<Comparison client:idle >
-  <Picture slot="itemOne" src={dogsDiffc} alt="Photo of two running dogs, lossily compressed using the DiffC algorithm" />
-  <Picture slot="itemTwo" src={dogsTrue} alt="True photo of two dogs running side-by-side in shallow water" />
-</Comparison>
+Under-canopy plant climbing robots like STEMbot (Figure 1) offer an alternative solution to pest detection [6]. By traversing the stems of plants, STEMbot captures under-cannopy scans and detects camouflaged pests such as the the tobacco hornworm. For the motion planner to accurately generate climbing trajectories,  STEMbot must semantically understand the scene and differentiate which obstacles are climbable (the stem) and what needs to be avoided (the leaves). This process of quickly translating STEMbot visual input into tomato plant segmentation remains a critical challenge in STEMbot development. 
 
-### Tab panels
+Building on the TomatoWUR dataset [7], which features full point clouds of tomato plants in the world frame, we generate two new datasets of static partial observations, and partial observations along a trajectory. Just like TomatoWUR, each point cloud is semantically labeled. Our baseline uses Point Transformer Version 3 (PTv3) for segmentation of the original full tomato point clouds. While the PTv3 model accurately segments singular tomato point clouds in the world frame, STEMbot follows trajectories with partial observations in sensor frame. Our key motivation is to adapt the PTv3 model to work with the STEMbot's visual input. Because the PTv3 model can only be applied to single frames, temporal inconsistencies (flickering) between consecutive predictions may occur. To address this limitation, we propose two new models: PTv3 with the addition of a Long-Short Term Memory (LSTM) module, as well as trajectory-batched PTv3.
 
-Tab panels are a great way to display a labeled collection of related visuals without taking up too much space.
+The main contributions of this paper are as follows:
 
-<Tabs defaultValue="true">
-  <TabsList>
-    <TabsTrigger value="true">Ground truth</TabsTrigger>
-    <TabsTrigger value="diffc">DiffC (Flux-dev)</TabsTrigger>
-    <TabsTrigger value="msillm">MS-ILLM</TabsTrigger>
-  </TabsList>
-  <TabsContent value="true">
-    <Picture
-      src={dogsTrue}
-      alt="True photo of two dogs running side-by-side in shallow water"
-    />
-  </TabsContent>
-  <TabsContent value="diffc">
-    <Picture
-      src={dogsDiffc}
-      alt="Photo of two running dogs, lossily compressed using the DiffC algorithm"
-    />
-  </TabsContent>
-  <TabsContent value="msillm">
-    <Picture
-      src={dogsMsillm}
-      alt="Photo of two running dogs, lossily compressed using MS-ILLM"
-    />
-  </TabsContent>
-</Tabs>
+  - A reproduction of the Point Cloud Transformer (PTv3) architecture for semantic segmentation of tomato plants.
+  
+  - Two new datasets of partial point cloud scans and trajectories generated using the STEMbot's camera and motion planner.
+  
+  - Two temporal extensions for the PTv3 algorithm.
 
-### Carousel
+  - A custom flickering evaluation metric to measure temporal inconsistencies in predictions along a trajectory.
 
-A carousel is another useful pattern for a collection of visuals that don't necessarily have meaningful labels.
 
-<Carousel>
-  <CarouselSlide>
-    <Picture src={dogsTrue} alt="True photo of two dogs running side-by-side in shallow water" />
-  </CarouselSlide>
-  <CarouselSlide>
-    <Picture src={dogsDiffc} alt="Photo of two running dogs, lossily compressed using the DiffC algorithm" />
-  </CarouselSlide>
-  <CarouselSlide>
-    <Picture
-      src={dogsMsillm}
-      alt="Photo of two running dogs, lossily compressed using MS-ILLM"
-    />
-  </CarouselSlide>
-</Carousel>
 
-## Two columns
 
-Use the two columns component to display two columns of content. In this example, the first column contains a YouTube video embed and the second column contains an interactive 3D model viewer. By default, they display side by side, but if the screen is narrow enough (for example, on mobile), they're arranged vertically.
+## Related Work
+This section introduces the background of existing tomato plant datasets, point cloud segmentation models, and temporal reasoning in machine learning.
 
-<TwoColumns>
-  <YouTubeVideo slot="left" videoId="wjZofJX0v4M" />
-  <ModelViewer slot="right" src="/BoxVertexColors.glb" alt="A cube colored with a rainbow gradient" />
-</TwoColumns>
+### TomatoWUR Dataset
+Van Marrewijk et. al. [7] introduce the TomatoWUR dataset for 3D plant phenotyping. The dataset includes  annotated 3D point cloud scans of 44 tomato plants, labeled by RGB color and class, along with annotated plant skeletons and ground truth measurements. This approach is acceptable in a laboratory setting where multi-view scans are possible, but breaks down in a practical setting where the robot only has access to a limited view of the plant restricted by its field of view and occlusions. Our work does not propose a novel dataset to replace TomatoWUR, but instead adapts TomatoWUR for robotic applications by extending its scope to include local partial point cloud scans and sequences of partial point clouds along simulated trajectories in both world and sensor frame.
 
-## $\LaTeX$
+### Point Cloud Segmentation
+RGB-D cameras are an increasingly common sensor modality in robotics, capturing RGB images paired with pixel-level depth measurements. Even in cases where only a standard camera is available, foundation models such as DepthAnything v2 [8] and Dinov3 [9] are being used to infer depth from monocular images using internet-scale data. Thus, it is important to create semantic segmentation that works directly on 3D representations.
 
-You can also add $\LaTeX$ formulas, rendered during the build process using [$\KaTeX$](https://katex.org/) so they're quick to load for visitors of your project page. You can write them inline, like this: $a^2 + b^2 = c^2$. Or, you can write them as a block:
+Deep-learning based 2D-to-3D methods [10] first perform 2D segmentation on a set of images, and subsequently backproject the 2D labels into 3D space. However, these methods require multiple images taken from known camera viewpoints, which is infeasible for robots in an agricultural setting.
 
-$$
-\int_a^b f(x) dx
-$$
+Other deep-learning architectures directly use 3D point clouds as input, and output classification labels for every point. Liu et. al and Choy et. al extract local feautures using convolution with Point-voxel convolutional neural networks [11] and Minkowski convolutional neural networks [12]. Others design their own local features specific to point sets, such as in PointNet++ [13]. Transformer architectures Swin3D [14] and PointTransformer v3 (PTv3) [15] use multi-head attention between patches of points and have previously been shown to be successful at point cloud segmentation [16]. Van Marrewijk et. al. [17] evaluates a subset of the above methods on the TomatoWUR dataset. Results indicate that transformer-based models and 2D-to-3D segmentation perform comparably. Since our application involves a single dynamically moving camera, and we cannot guarantee perfect alignment of frames, we focus on improving transformer-based architectures, in particular PTv3 [18].
 
-## Citation
 
-If you copy your bibliography into `./bibliography.bib`, you can cite papers using their BibTeX keys, and they'll be automatically formatted and included in the bibliography section at the end. For example: [@vaswani2017attention]. Note that these citations are distinct from footnotes[^mynote], which show up in a separate section if you use them.
+### Temporal Reasoning in Machine Learning
+Many 3D segmentation methods focus on predicting labels for a single static point cloud, which works well for singular frames but is unreliable over a continuous sequence of inputs. Applying these methods directly may result in flickering, where semantic predictions of the same points frequently flip between different labels in consecutive frames. In contrast, an ideal segmentation model would incorporate the knowledge that points should retain their labels throughout a sequence to make consistent, and more accurate, predictions. Since the early days of deep learning, researchers have been developing methods of processing sequential data in a neural network. Long short term memory (LSTM) modules are similar to recurrent neural networks, except with memory blocks in the hidden layers [17]. LSTMs learn to remember and forget parameters which help the network manage its memory of previous inputs. Transformers are another natural way to handle sequential input [18][19], using multi-head attention to learn the correlation between various sequence elements. We explore applying both an LSTM module, and attention between point clouds in a trajectory, with PTv3 to extend the static tomato plant segmentation work of Van Marrewijk et. al. to a sequence of local views of the plant along continuous trajectories of plant climbing robots.
 
-[^mynote]: On the web, they should really be called "endnotes", since each page constitutes a full document.
+## Paper Reproduction
+<Figure>
+  <Picture slot="figure" src={Figure2} alt="Pipeline Diagram for Point Transformer v3 (PTv3), taken directly from the paper" />
+  <Fragment slot="caption">Figure 2: Pipeline Diagram for Point Transformer v3 (PTv3), taken directly from the paper</Fragment>
+</Figure>
 
-## Table
+Van Marrewijk et. al. [10] proposes and evaluates four different models for tomato plant segmentation-- 2D-to-3D segmentation, MinkUNet [11], Swin3D [12], and PTv3 [13]. We chose to focus on the most performant PTv3 model to reproduce and extend.
 
-Add simple tables using [GitHub Flavored Markdown syntax](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-tables):
+The core architecture of Point Transformer V3 (PTv3) consists of an initialization stage and sequential encoder blocks (Figure 2). Instead of treating point clouds as unordered sets, the initialization stage serializes a point cloud input by enforcing structure, allowing the attention mechanism of the transformer to capture different spatial relationships[14]. Specifically, PTv3 defines four serializations that order the points using different geometries: Z-Order, Trans Z-Order, Hilbert, and Trans-Hilbert. Each ordering is assigned a serialized embedding. As [15] does not focus on downstream prediction, the decoder is unspecified. For tomato plant segmentation, Van Marrewijk adds a decoder architecture identical to the encoder blocks in Figure 2, substituting the pooling layers for up-sampling layers [10].
 
-| Model | Accuracy | F1 score | Training time (hours) |
-| :--- | :---: | :---: | :---: |
-| BERT-base | 0.89 | 0.87 | 4.5 |
-| RoBERTa-large | 0.92 | 0.91 | 7.2 |
-| DistilBERT | 0.86 | 0.84 | 2.1 |
-| XLNet | 0.90 | 0.89 | 6.8 |
+<Figure>
+  <Picture slot="figure" src={Figure3} alt="Mean and per-category IoU results for tomato plant segmentation with the original PTv3 model and our retrained model." />
+  <Fragment slot="caption">Figure 3: Mean and per-category IoU results for tomato plant segmentation with the original PTv3 model and our retrained model.</Fragment>
+</Figure>
 
-## BibTeX citation
+We initialize the PTv3 model with pretrained weights and evaluate it on the TomatoWUR test set using the split defined by [10]. Figure 3 compares the mean and per-class IoU results reported in the original paper to our reproduction results. Our results remain within 1$\%$ of the values reported by [10], ensuring a fair baseline for our experiments in Section V.
 
-Displaying the BibTeX entry for your paper in a code block makes it easy to copy and paste.
+## Extensions 
 
-```bibtex
-@misc{roman2024academic,
-  author = "{Roman Hauksson}",
-  title = "Academic Project Page Template",
-  year = "2024",
-  howpublished = "\url{https://research-template.roman.technology}",
-}
-```
+### Dataset Extension
 
-## Bibliography
+The TomatoWUR dataset [7] provides high-fidelity, segmented 3D point clouds of tomato plants reconstructed from
+15 surrounding camera viewpoints per plant. While valuable,
+this setup is impractical for real-world deployment due to
+the requirement of dense multi-view coverage. To address
+this limitation, we extend the dataset in two directions: (1)
+unordered partial scans that reflect incomplete observations,
+and (2) temporally ordered partial scans generated from simulated STEMbot trajectories. For all extensions, we enforce
+train/test splits at the plant level, ensuring that scans from
+the same plant do not appear in both sets. Furthermore, each
+dataset contains both world frame and sensor frame data
+depending on the point of inference in the robot’s localization
+pipeline.
 
-[^ref]
+#### Unordered Partial Scans:
+<Figure>
+  <Picture slot="figure" src={Figure4} alt="Example partial point clouds from the partial point cloud dataset. Each point cloud is generated using the camera frustum of STEMbot (Intel RealSense D405), from a climbing location on the plant stem." />
+  <Fragment slot="caption">Figure 4: Example partial point clouds from the partial point cloud dataset. Each point cloud is generated using the camera frustum of STEMbot (Intel RealSense D405), from a climbing location on the plant stem.</Fragment>
+</Figure>
+
+For each tomato plant in the
+TomatoWUR dataset, we generate 32 partial scans. To ensure
+scan realism, we simulate the placement of the STEMbot
+robot [6] on randomly selected stems with feasible sensor
+poses. Each scan is acquired using a simulated d405 Intel
+RealSense stereo depth camera, modeled via its corresponding camera frustum. Figure 4 shows two examples from our
+data generation pipeline.
+The variability in sensor placement results in a diverse
+set of partial observations, with individual scans of up to
+50,000 points. This formulation enables evaluation under
+realistic sensing constraints, where perception must operate
+on incomplete, viewpoint-limited observations rather than
+full multi-view reconstructions.
+
+#### Temporally Ordered Partial Scans:
+<Figure>
+  <Picture slot="figure" src={Figure5} alt="An example trajectory from our partial point cloud trajectory dataset. Each trajectory has 8 waypoints, generated using the STEMbot motion planner with a specified start and goal state. Example trajectories include vertical climbs and descents, as well as switches onto branch junctions." />
+  <Fragment slot="caption">Figure 5: An example trajectory from our partial point cloud trajectory dataset. Each trajectory has 8 waypoints, generated using the STEMbot motion planner with a specified start and goal state. Example trajectories include vertical climbs and descents, as well as switches onto branch junctions.</Fragment>
+</Figure>
+
+We additionally
+generate two STEMbot trajectories per tomato plant using the
+motion planner developed in [6] for a total of 88 trajectories.
+Each trajectory consists of eight temporally ordered partial
+scans, captured along a feasible robot path. This temporal
+structure enables evaluation under sequential sensing conditions, where observations are correlated through robot motion
+rather than independently sampled viewpoints. Figure 5
+shows an example trajectory and the camera frustums used
+to collect the partial point cloud scan information.
+
+
+### Algorithmic Extension
+
+In this section, we describe two different methods to
+incorporate temporal knowledge in the segmentation model
+for point cloud sequences: (1) a recurrent model based on
+long short-term memory (LSTM) and (2) batched sequences
+with attention.
+
+#### Long Short-Term Memory (LSTM):
+<Figure>
+  <Picture slot="figure" src={Figure6} alt="Visualization of the PTv3 LSTM architecture." />
+  <Fragment slot="caption">Figure 6: Visualization of the PTv3 LSTM architecture.</Fragment>
+</Figure>
+
+To mitigate temporal inconsistency (e.g. segmentation flickering), the model
+requires information from prior frames in the sequence. We
+introduce an LSTM module to model temporal dependencies
+across the trajectory. As shown in Figure 6A, the LSTM
+is placed at the network bottleneck between the encoder
+and decoder, allowing it to operate on a compact latent
+representation.
+
+At each timestep, the encoder embedding is passed
+through the LSTM allowing the hidden state to aggregate
+information across frames. The LSTM output is then fused
+with the raw encoder embedding via an additive skip connection before being passed into the decoder.
+
+#### Batched Sequence Attention:
+Our second approach
+takes advantage of the transformer architecture through
+multi-head attention to capture temporal artifacts between
+partial point clouds in a trajectory. This method, shown
+in Figure 6B, feeds all 8 partial point clouds from each
+waypoint in the trajectory to the transformer. Multi-head
+attention allows for inherent sequence information between
+frames.
+
+## Experiments and Results 
+
+### Generalization Across Data Regimes
+<Figure>
+  <Picture slot="figure" src={Figure7} alt="Mean IoU comparison between a model trained on the full point
+cloud dataset and the partial point cloud dataset, tested on both full
+and partial point clouds (in the world frame). The PPC model performs
+significantly better than the FPC model on partial point clouds, and does
+not sacrifice performance on full point clouds." />
+  <Fragment slot="caption">Figure 7: Mean IoU comparison between a model trained on the full point
+cloud dataset and the partial point cloud dataset, tested on both full
+and partial point clouds (in the world frame). The PPC model performs
+significantly better than the FPC model on partial point clouds, and does
+not sacrifice performance on full point clouds.</Fragment>
+</Figure>
+
+We evaluate two PTv3 models following the architecture
+in [10]: one trained on full point clouds (FPC) and one
+trained on our partial point cloud (PPC) dataset. As shown
+in Figure 7, the FPC-trained model exhibits a substantial
+performance drop when evaluated on partial observations,
+indicating limited generalization to incomplete viewpoints.
+In contrast, the PPC-trained model achieves significantly
+higher performance on partial point clouds while maintaining
+comparable performance on full point clouds. Our results
+show that the original model, trained on full point clouds,
+overfits and cannot generalize to partial scans; conversely,
+our new model, trained on partial scans, generalizes well to
+full point clouds.
+
+### Frame of Reference Analysis
+
+<Figure>
+  <Picture slot="figure" src={Figure9} alt="oU comparison between world-frame and sensor-frame representa-
+tions for a PTv3 model trained on partial point clouds. All other training
+and evaluation conditions are held constant." />
+  <Fragment slot="caption">Figure 9: IoU comparison between world-frame and sensor-frame representations for a PTv3 model trained on partial point clouds. All other training
+and evaluation conditions are held constant.</Fragment>
+</Figure>
+
+We evaluate a PTv3 model trained on partial point clouds
+(PPC) using inputs expressed in either the world frame
+or the sensor (camera) frame. As shown in Figure 9, we
+observe negligible performance differences between the two
+representations, indicating that the model is largely invariant
+to the choice of input coordinate frame. Intuitively, this is not
+the result that we expected, specifically for the ”main stem”
+and ”side stem” categories. In world frame, the main stem
+semantic class is always in a nearly identical pose. For the
+sensor frame scans, side stem or main stem could be in any
+configuration depending on the pose of STEMbot. Despite
+this challenge, our models achieved nearly the same mean
+and per-class IoUs.
+
+### Temporal Consistency Evaluation
+
+<Figure>
+  <Picture slot="figure" src={Figure8} alt="Areas of flicker (cyan) along a trajectory from each point cloud segmentation model" />
+  <Fragment slot="caption">Figure 8: Areas of flicker (cyan) along a trajectory from each point cloud segmentation model</Fragment>
+</Figure>
+
+
+|                     | PTv3 | Batched PTv3 | LSTM |
+|---------------------|------|--------------|------|
+| Mean IoU            | 0.802| 0.796        | 0.771|
+| Accuracy (%)        | 88.91| 89.27        | 86.14|
+| Average Flicker (%) | 3.38 | 2.96         | 3.03 |
+
+**Table I:** Mean IoU, Accuracy, and Flicker Rate of Baseline PTv3 Model,
+Batched PTv3 Model, and Recurrent LSTM Model Across All Trajectories
+
+
+For temporal consistency, we evaluate vanilla PTv3 trained
+on PPC, Recurrent PTv3 with incorporated LSTM, and
+batched sequence attention PTv3. We classify each frame
+of the trajectory test set sequentially. To calculate temporal consistency, we calculate the number of overlapping
+points between each frame and quantify flicker rate as (Flicker Rate = # Reclassified Points / # Overlapping Points)
+
+As shown in Table I, we find
+that vanilla PTv3 has a modest average flicker rate of 3.38%
+with both recurrent PTv3 and batched sequence attention
+PTv3 showing reduced temporal flicker. Batched sequence
+attention PTv3 has the highest temporal consistency with an
+average flicker rate of just 2.96%. In addition, a visualization
+of the areas of flicker was developed for each plant. Figure
+8 shows point clouds generated by overlaying partial point
+clouds from a trajectory on three plants in the dataset. Points
+that had predictions change as the trajectory point clouds
+were fed into the model are highlighted in cyan. From this
+visual, it is evident that flickering most occurs at boundaries
+between distinct areas of the plant (e.g. where a side stem
+extrudes from the main stem). The difference in model did
+not change the location of where flickering occurred.
+
+## Conclusions
+
+We find that PTv3 trained on PPC significantly improves
+segmentation performance on the held out PPC test set
+compared to FPC training. We further note that PPC trained
+PTv3 maintains equivalent performance to the FPC trained
+model on the FPC test set (see Figure 7). This indicates that
+privileged FPC information is not necessary for a reliable
+point cloud segmentation model, opening the door for more
+realistic robot applications.
+
+Our experiments also showed negligible performance differences between models trained and evaluated on point
+clouds in world frame vs sensor frame. The simplest method
+of gathering point clouds is to convert raw sensor frame
+RGBD images into a point cloud. Transforming raw sensor
+frame point clouds into world frame adds additional implementation complexity and a potential source of error. Our
+results suggest that equivalent performance is possible with
+sensor frame point clouds, decoupling segmentation from
+global mapping.
+
+Finally, we consider the ”flicker” or reclassification of
+points between consecutive frames in a trajectory. Our results
+suggest that both the incorporation of an LSTM and batched
+sequential inference improve temporal consistency in point
+cloud segmentation across trajectories. The reduce in flicker
+can improve robot certainty as fewer sections of the observed
+point cloud are reclassified from frame to frame. However,
+we note that while flicker rate decreases for both of our
+temporal extensions, accuracy and IoU do not significantly
+increase from baseline (see Table I). This is somewhat
+unexpected as the sole training objective is segmentation
+accuracy. Therefore, we would expect a decrease in flicker
+rate to correspond to an increase in IoU/accuracy. The lack
+of improvement in accuracy suggests that our temporal
+extensions may be more consistent both when correct and
+incorrect, indicating a need for further study.
+
+## References
+[1] USDA. (2026) Integrated pest management. [Online]. Available:
+https://www.usda.gov/oce/pest/integrated-pest-management
+
+[2] E.-C. OERKE, “Crop losses to pests,” The Journal of Agricultural
+Science, vol. 144, no. 1, p. 31–43, 2006.
+
+[3] Maine Department of Agriculture, Conservation and Forestry, “Tomato
+hornworm—manduca quinquemaculata tobacco hornworm—m.
+sexta,” https://www.maine.gov/dacf/php/gotpests/bugs/hornworms.
+htm, n.d., accessed: 2026-04-26.
+
+[4] ——, “Tobacco hornworm, manduca sexta (linnaeus), and tomato
+hornworm, manduca quinquemaculata (haworth), (insecta: Lepi-
+doptera: Sphingidae,” https://www.maine.gov/dacf/php/gotpests/bugs/
+documents/hornworms-fla.pdf, n.d., accessed: 2026-04-26.
+
+[5] F. H. Iost Filho, W. B. Heldens, Z. Kong, and E. S. de Lange, “Drones:
+Innovative technology for use in precision pest management,” Journal
+of Economic Entomology, vol. 113, no. 1, pp. 1–25, 02 2020.
+[Online]. Available: https://doi.org/10.1093/jee/toz268
+
+[6] Z. Charlick, N. R. Choudhury, H. Ma, X. Huang, and D. Berenson,
+“STEMbot: A compliant robot for under-canopy plant navigation,” in
+IEEE/RSJ International Conference on Intelligent Robots and Systems
+(IROS), 2026, submitted.
+
+[7] B. M. van Marrewijk, T. van Daalen, K. Smoleˇnov´a, B. Xin,
+G. Polder, and G. Kootstra, “Tomatowur: An annotated dataset of
+tomato plants to quantitatively evaluate segmentation, skeletonisation,
+and plant-trait extraction algorithms for 3d plant phenotyping,”
+Data in Brief, vol. 61, p. 111852, 2025. [Online]. Available: https:
+//www.sciencedirect.com/science/article/pii/S2352340925005773
+
+[8] L. Yang, B. Kang, Z. Huang, Z. Zhao, X. Xu, J. Feng, and H. Zhao,
+“Depth anything v2,” Advances in Neural Information Processing
+Systems, vol. 37, pp. 21 875–21 911, 2024.
+
+[9] O. Sim´eoni, H. V. Vo, M. Seitzer, F. Baldassarre, M. Oquab, C. Jose,
+V. Khalidov, M. Szafraniec, S. Yi, M. Ramamonjisoa et al., “Dinov3,”
+arXiv preprint arXiv:2508.10104, 2025.
+
+[10] B. M. van Marrewijk, T. van Daalen, B. Xin, E. J. van Henten,
+G. Polder, and G. Kootstra, “3d plant segmentation: Comparing a
+2d-to-3d segmentation method with state-of-the-art 3d segmentation
+algorithms,” Biosystems Engineering, vol. 254, p. 104147, 2025.
+[Online]. Available: https://www.sciencedirect.com/science/article/pii/
+S1537511025000832
+
+[11] Z. Liu, H. Tang, Y. Lin, and S. Han, “Point-voxel cnn for efficient 3d
+deep learning,” Advances in neural information processing systems,
+vol. 32, 2019.
+
+[12] C. Choy, J. Gwak, and S. Savarese, “4d spatio-temporal convnets:
+Minkowski convolutional neural networks,” in Proceedings of the
+IEEE/CVF conference on computer vision and pattern recognition,
+2019, pp. 3075–3084.
+
+[13] C. R. Qi, L. Yi, H. Su, and L. J. Guibas, “Pointnet++: Deep
+hierarchical feature learning on point sets in a metric space,” Advances
+in neural information processing systems, vol. 30, 2017.
+
+[14] Y.-Q. Yang, Y.-X. Guo, J.-Y. Xiong, Y. Liu, H. Pan, P.-S. Wang,
+X. Tong, and B. Guo, “Swin3d: A pretrained transformer backbone for
+3d indoor scene understanding,” Computational Visual Media, vol. 11,
+no. 1, pp. 83–101, 2025.
+
+[15] X. Wu, L. Jiang, P.-S. Wang, Z. Liu, X. Liu, Y. Qiao, W. Ouyang,
+T. He, and H. Zhao, “Point transformer v3: Simpler faster stronger,”
+in Proceedings of the IEEE/CVF conference on computer vision and
+pattern recognition, 2024, pp. 4840–4851.
+
+[16] D. Lu, Q. Xie, M. Wei, K. Gao, L. Xu, and J. Li, “Transformers in
+3d point clouds: A survey,” arXiv preprint arXiv:2205.07417, 2022.
+
+[17] A. Graves, “Long short-term memory,” Supervised sequence labelling
+with recurrent neural networks, pp. 37–45, 2012.
+
+[18] C. Yun, S. Bhojanapalli, A. S. Rawat, S. J. Reddi, and S. Kumar,
+“Are transformers universal approximators of sequence-to-sequence
+functions?” arXiv preprint arXiv:1912.10077, 2019.
+
+[19] C. Li, Y. Wang, Q. Liu, X. Zhao, W. Wang, Y. Wang, L. Zou, W. Fan,
+and Q. Li, “Strec: Sparse transformer for sequential recommenda-
+tions,” in Proceedings of the 17th ACM conference on recommender
+systems, 2023, pp. 101–111
+
+
+
+
+
+
